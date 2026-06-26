@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePhotoStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
+import { buildWebSocketUrl } from "@/lib/api";
 
 type UseRoomWsReturn = {
   sendStart: () => void;
@@ -35,8 +36,9 @@ export function useRoomWs(): UseRoomWsReturn {
     if (!s.roomId || !s.myParticipantId || !s.myName) return;
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/api/ws?roomId=${encodeURIComponent(s.roomId)}&participantId=${encodeURIComponent(s.myParticipantId)}&name=${encodeURIComponent(s.myName)}&isHost=${s.isHost}`;
+    const wsUrl = buildWebSocketUrl(
+      `/ws?roomId=${encodeURIComponent(s.roomId)}&participantId=${encodeURIComponent(s.myParticipantId)}&name=${encodeURIComponent(s.myName)}&isHost=${s.isHost}`,
+    );
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;

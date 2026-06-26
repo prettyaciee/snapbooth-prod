@@ -8,3 +8,9 @@ frontend/.tsbuildinfo
 npm-debug.log*
 .codex-dev*
 docs
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { usePhotoStore } from "@/lib/store";
 import { useRoomWs } from "@/hooks/use-room-ws";
 import { Camera, X, Copy, Check, Users } from "lucide-react";
+import { buildApiUrl } from "@/lib/api";
 
 type Phase = "fetching" | "name_entry" | "ready";
 
@@ -45,7 +46,7 @@ export default function Room() {
     if (phase !== "fetching") return;
     if (!roomId) { setLocation("/"); return; }
 
-    fetch(`/api/rooms/${roomId}`)
+    fetch(buildApiUrl(`/rooms/${roomId}`))
       .then((r) => {
         if (!r.ok) throw new Error("not found");
         return r.json() as Promise<{ roomId: string; groupSize: number; status: string }>;
