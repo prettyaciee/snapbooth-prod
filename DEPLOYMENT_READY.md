@@ -56,7 +56,7 @@ Your Snapbooth project is now ready for deployment to Render and Netlify!
 ```bash
 npm run test
 npm run typecheck
-npm run build
+npm run build:all
 npm run dev
 ```
 

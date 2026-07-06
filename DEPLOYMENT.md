@@ -16,7 +16,7 @@ This project is a monorepo containing a Node.js backend and React frontend, conf
 4. Configure the service:
    - **Name:** snapbooth-backend (or your choice)
    - **Environment:** Node
-   - **Build Command:** `npm install && npm run build -w backend`
+   - **Build Command:** `npm install && npm run build`
    - **Start Command:** `npm start -w backend`
    - **Node Version:** 22 (auto-detected from .nvmrc)
 5. Add environment variables in Render dashboard:
@@ -50,7 +50,7 @@ This project is a monorepo containing a Node.js backend and React frontend, conf
 
 ### `render.yaml`
 Specifies Render deployment configuration:
-- Builds with `npm run build -w backend`
+- Builds with `npm run build`
 - Starts with `npm start -w backend`
 - Runs on Node 22
 - Sets production environment
@@ -127,7 +127,7 @@ Frontend automatically connects to `http://localhost:3001/api` for development.
 
 ### Backend won't start on Render
 - Check build logs in Render dashboard
-- Verify `npm run build -w backend` works locally
+- Verify `npm run build` works locally for the backend service
 - Check Node version (should be 22)
 
 ### Page not found on Netlify

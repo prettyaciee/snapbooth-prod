@@ -32,8 +32,8 @@ npm run dev               # Test locally
 3. Settings:
    - **Name:** snapbooth-backend
    - **Environment:** Node
-   - **Build:** `npm install && npm run build -w backend`
-   - **Start:** `npm start -w backend`
+   - **Build:** `npm install && npm run build`
+   - **Start:** `npm start`
    - **Region:** Oregon (or nearest)
 4. Add Environment Variables:
    - `NODE_ENV` = `production`

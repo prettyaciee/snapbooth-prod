@@ -22,7 +22,7 @@ Use this checklist before deploying to Render and Netlify.
 
 - [ ] `.nvmrc` contains correct Node version
 - [ ] `render.yaml` is at project root
-- [ ] Build command works: `npm install && npm run build -w backend`
+- [ ] Build command works: `npm install && npm run build`
 - [ ] Start command works: `npm start -w backend`
 - [ ] Backend listens on PORT environment variable
 - [ ] All environment variables documented in `backend/.env.example`

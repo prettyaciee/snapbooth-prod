@@ -9,10 +9,13 @@
     "dev": "node scripts/run-dev.mjs",
     "dev:frontend": "npm run dev -w frontend",
     "dev:backend": "npm run dev -w backend",
-    "build": "npm run build --workspaces",
+    "build": "npm run build:backend",
+    "build:all": "npm run build -w frontend && npm run build -w backend",
     "build:backend": "npm run build -w backend",
     "build:frontend": "npm run build -w frontend",
     "start": "npm start -w backend",
+    "test": "npm run test:workspace && npm run test --workspaces",
+    "test:workspace": "tsx --test tests/workspace/package-scripts.test.ts",
     "typecheck": "npm run typecheck --workspaces"
   }
 }
