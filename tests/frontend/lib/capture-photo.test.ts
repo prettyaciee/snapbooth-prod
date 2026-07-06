@@ -72,3 +72,37 @@ test("capturePhotoWhenReady returns null when the camera never becomes ready", a
   assert.equal(result, null);
   assert.equal(waitCount, 3);
 });
+
+test("capturePhotoWhenReady does not wait forever on a pending play promise", async () => {
+  const video = {
+    play: () => new Promise<void>(() => undefined),
+    videoWidth: 0,
+    videoHeight: 0,
+  };
+
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      clearRect: () => undefined,
+      setTransform: () => undefined,
+      drawImage: () => undefined,
+    }),
+    toDataURL: () => "data:image/jpeg;base64,captured-shot",
+  };
+
+  const result = await Promise.race([
+    capturePhotoWhenReady(video as never, canvas as never, {
+      maxAttempts: 2,
+      waitForNextFrame: async () => {
+        video.videoWidth = 720;
+        video.videoHeight = 960;
+      },
+    }),
+    new Promise<string>((resolve) => {
+      setTimeout(() => resolve("timed-out"), 25);
+    }),
+  ]);
+
+  assert.equal(result, "data:image/jpeg;base64,captured-shot");
+});

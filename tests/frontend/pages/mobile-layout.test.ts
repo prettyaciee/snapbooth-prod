@@ -19,6 +19,14 @@ test("room page uses mobile-first stacking for invite actions and smaller booth 
   assert.match(roomSource, /text-\[5rem\].*sm:text-\[8rem\].*md:text-\[13rem\]/s);
 });
 
+test("room page reattaches the live camera stream when the booth video remounts", () => {
+  assert.match(roomSource, /attachStreamToVideo\(videoRef\.current\);/);
+  assert.match(
+    roomSource,
+    /useEffect\(\(\) => \{\s*if \(phase !== "ready"\) return;\s*attachStreamToVideo\(videoRef\.current\);\s*\}, \[phase, isBooth\]\);/s,
+  );
+});
+
 test("result page keeps the strip inside a shrinkable scroll region and uses responsive strip layout", () => {
   assert.match(resultSource, /className="w-full min-w-0 overflow-x-auto py-4 sm:py-6"/);
   assert.match(resultSource, /getResultStripLayout\(orderedParticipants\.length\)/);

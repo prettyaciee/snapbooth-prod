@@ -53,6 +53,22 @@ export default function Room() {
   >(null);
   const [copied, setCopied] = useState(false);
   const { sendStart, sendPhoto } = useRoomWs();
+  const isBooth = store.status === "countdown" || store.status === "capturing";
+
+  const attachStreamToVideo = (video: HTMLVideoElement | null) => {
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+
+    video.onloadedmetadata = () => {
+      void video.play().catch(() => undefined);
+    };
+
+    void video.play().catch(() => undefined);
+  };
 
   useEffect(() => {
     roomIdentityRef.current = {
@@ -129,14 +145,7 @@ export default function Room() {
           return;
         }
         streamRef.current = stream;
-        const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
-          video.onloadedmetadata = () => {
-            void video.play().catch(() => undefined);
-          };
-          void video.play().catch(() => undefined);
-        }
+        attachStreamToVideo(videoRef.current);
         setHasPermission(true);
       })
       .catch(() => {
@@ -153,6 +162,11 @@ export default function Room() {
       }
     };
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "ready") return;
+    attachStreamToVideo(videoRef.current);
+  }, [phase, isBooth]);
 
   useEffect(() => {
     let active = true;
@@ -312,7 +326,6 @@ export default function Room() {
     );
   }
 
-  const isBooth = store.status === "countdown" || store.status === "capturing";
   const totalSlots = store.groupSize || fetchedGroupSize;
   const currentShot = (store.currentShotIndex ?? 0) + 1;
 

@@ -1,16 +1,28 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Download, RefreshCcw, Sparkles } from "lucide-react";
 import { usePhotoStore } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
 import { ARCADE_FILTERS, BOOTH_FRAME_COUNT } from "@/lib/arcade-ui";
 import { getResultStripLayout } from "@/lib/result-strip-layout";
+import { createStripDownloadAsset } from "@/lib/strip-download";
+
+type DownloadAsset = {
+  blob: Blob;
+  filename: string;
+  url: string;
+};
 
 export default function Result() {
   const [, setLocation] = useLocation();
   const store = usePhotoStore();
   const { shots, participants, mode, filter, setFilter, clear } = store;
   const stripRef = useRef<HTMLDivElement>(null);
+  const downloadUrlRef = useRef<string | null>(null);
+  const [downloadAsset, setDownloadAsset] = useState<DownloadAsset | null>(null);
+  const [isPreparingDownload, setIsPreparingDownload] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!shots || shots.length === 0) {
@@ -18,91 +30,114 @@ export default function Result() {
     }
   }, [shots, setLocation]);
 
+  useEffect(() => {
+    if (!shots || shots.length === 0) {
+      if (downloadUrlRef.current) {
+        URL.revokeObjectURL(downloadUrlRef.current);
+        downloadUrlRef.current = null;
+      }
+      setDownloadAsset(null);
+      setIsPreparingDownload(false);
+      return;
+    }
+
+    let active = true;
+    setIsPreparingDownload(true);
+
+    void createStripDownloadAsset({ shots, participants, mode, filter })
+      .then((asset) => {
+        if (!active) return;
+
+        const url = URL.createObjectURL(asset.blob);
+        if (downloadUrlRef.current) {
+          URL.revokeObjectURL(downloadUrlRef.current);
+        }
+        downloadUrlRef.current = url;
+        setDownloadAsset({ ...asset, url });
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!active) return;
+
+        if (downloadUrlRef.current) {
+          URL.revokeObjectURL(downloadUrlRef.current);
+          downloadUrlRef.current = null;
+        }
+        setDownloadAsset(null);
+        toast({
+          title: "Download unavailable",
+          description: "We couldn't prepare the strip file. Refresh the page and try again.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (active) {
+          setIsPreparingDownload(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [filter, mode, participants, shots, toast]);
+
+  useEffect(() => {
+    return () => {
+      if (downloadUrlRef.current) {
+        URL.revokeObjectURL(downloadUrlRef.current);
+        downloadUrlRef.current = null;
+      }
+    };
+  }, []);
+
   const handleRetake = () => {
     clear();
     setLocation("/");
   };
 
   const handleDownload = async () => {
-    if (!shots || shots.length === 0 || !stripRef.current) return;
-
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const activeFilter = ARCADE_FILTERS.find((item) => item.id === filter) || ARCADE_FILTERS[0];
-    const orderedParticipants = [...participants].sort((a, b) => a.id.localeCompare(b.id));
-
-    const cols = orderedParticipants.length || 1;
-    const rows = shots.length;
-    const imgWidth = 400;
-    const imgHeight = 533;
-    const padding = 60;
-    const colGap = 30;
-    const rowGap = 30;
-    const footerHeight = 200;
-    const headerHeight = 80;
-
-    canvas.width = imgWidth * cols + colGap * (cols - 1) + padding * 2;
-    canvas.height = headerHeight + imgHeight * rows + rowGap * (rows - 1) + padding * 2 + footerHeight;
-
-    ctx.fillStyle = "#fff8df";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.font = "bold 32px 'DM Sans', sans-serif";
-    ctx.fillStyle = "#20100d";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-
-    orderedParticipants.forEach((participant, colIndex) => {
-      const x = padding + colIndex * (imgWidth + colGap) + imgWidth / 2;
-      ctx.fillText(participant.name, x, padding + headerHeight - 20);
-    });
-
-    for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
-      const shot = shots.find((item) => item.shotIndex === rowIndex);
-      if (!shot) continue;
-
-      for (let colIndex = 0; colIndex < cols; colIndex++) {
-        const participant = orderedParticipants[colIndex];
-        const photo = shot.photos.find((item) => item.participantId === participant.id);
-
-        if (photo) {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise((resolve) => {
-            img.onload = resolve;
-            img.src = photo.data;
-          });
-
-          const x = padding + colIndex * (imgWidth + colGap);
-          const y = padding + headerHeight + rowIndex * (imgHeight + rowGap);
-
-          ctx.filter = activeFilter.canvasParams;
-          ctx.drawImage(img, x, y, imgWidth, imgHeight);
-          ctx.filter = "none";
-          ctx.strokeStyle = "#20100d";
-          ctx.lineWidth = 6;
-          ctx.strokeRect(x, y, imgWidth, imgHeight);
-        }
-      }
+    if (!downloadAsset) {
+      toast({
+        title: "Still preparing",
+        description: "The strip file is still being prepared. Try again in a moment.",
+        variant: "destructive",
+      });
+      return;
     }
 
-    const footerY = canvas.height - footerHeight / 2;
-    ctx.fillStyle = "#20100d";
-    ctx.font = "bold 80px 'Limelight', serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("SnapBooth", canvas.width / 2, footerY - 20);
+    try {
+      if (
+        typeof navigator !== "undefined" &&
+        "share" in navigator &&
+        "canShare" in navigator
+      ) {
+        const file = new File([downloadAsset.blob], downloadAsset.filename, {
+          type: downloadAsset.blob.type || "image/png",
+        });
 
-    ctx.font = "30px 'DM Sans', sans-serif";
-    ctx.fillStyle = "#9f1714";
-    ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, footerY + 50);
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: downloadAsset.filename,
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      console.error(error);
+    }
 
     const link = document.createElement("a");
-    link.download = `snapbooth-${mode || "multiplayer"}-${Date.now()}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.download = downloadAsset.filename;
+    link.href = downloadAsset.url;
+    link.rel = "noopener";
+    link.style.display = "none";
+    document.body.appendChild(link);
     link.click();
+    link.remove();
   };
 
   if (!shots || shots.length === 0) return null;
@@ -163,10 +198,11 @@ export default function Result() {
               <button
                 type="button"
                 onClick={handleDownload}
+                disabled={!downloadAsset || isPreparingDownload}
                 className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-[#9f1714] px-4 py-3 text-base font-bold text-[#fff8df] shadow-[5px_5px_0_#20100d] transition hover:bg-[#24d8d0] hover:text-[#20100d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 sm:px-5 sm:py-4 sm:text-lg"
               >
                 <Download size={20} aria-hidden="true" />
-                Download strip
+                {isPreparingDownload ? "Preparing strip" : "Download strip"}
               </button>
               <button
                 type="button"

@@ -81,7 +81,7 @@ export async function capturePhotoWhenReady(
   }: CapturePhotoOptions = {},
 ): Promise<string | null> {
   if (typeof video.play === "function") {
-    await video.play().catch(() => undefined);
+    void video.play().catch(() => undefined);
   }
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
