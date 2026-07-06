@@ -13,14 +13,17 @@ import {
 } from "lucide-react";
 import { usePhotoStore } from "@/lib/store";
 import { useRoomWs } from "@/hooks/use-room-ws";
+import { useToast } from "@/hooks/use-toast";
 import { buildApiUrl } from "@/lib/api";
 import { BOOTH_FRAME_COUNT, ROOM_MODE_BY_SIZE } from "@/lib/arcade-ui";
+import { capturePhotoWhenReady } from "@/lib/capture-photo";
 import { resolveFetchedRoomPhase, resolveInitialRoomPhase, type RoomPhase } from "@/lib/room-phase";
 
 export default function Room() {
   const { roomId } = useParams<{ roomId: string }>();
   const [, setLocation] = useLocation();
   const store = usePhotoStore();
+  const { toast } = useToast();
 
   const initialPhase = resolveInitialRoomPhase({
     routeRoomId: roomId,
@@ -49,6 +52,7 @@ export default function Room() {
     { participantId: string; name: string; data: string }[] | null
   >(null);
   const [copied, setCopied] = useState(false);
+  const { sendStart, sendPhoto } = useRoomWs();
 
   useEffect(() => {
     roomIdentityRef.current = {
@@ -125,7 +129,14 @@ export default function Room() {
           return;
         }
         streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          video.onloadedmetadata = () => {
+            void video.play().catch(() => undefined);
+          };
+          void video.play().catch(() => undefined);
+        }
         setHasPermission(true);
       })
       .catch(() => {
@@ -135,34 +146,54 @@ export default function Room() {
     return () => {
       active = false;
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      if (videoRef.current) {
+        videoRef.current.onloadedmetadata = null;
+        videoRef.current.srcObject = null;
+      }
     };
   }, [phase]);
 
   useEffect(() => {
+    let active = true;
+
     const handler = (event: Event) => {
       const { shotIndex } = (event as CustomEvent<{ shotIndex: number }>).detail;
-      if (!videoRef.current || !canvasRef.current) return;
-
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      if (!video || !canvas) return;
 
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      void (async () => {
+        const capturedPhoto = await capturePhotoWhenReady(video, canvas);
+        if (!active) return;
 
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      sendPhoto(canvas.toDataURL("image/jpeg", 0.9), shotIndex);
-      setCountdownDisplay(null);
-      setFlash(true);
-      setTimeout(() => setFlash(false), 200);
+        if (!capturedPhoto) {
+          setCountdownDisplay(null);
+          toast({
+            title: "Camera not ready",
+            description: "We couldn't capture that frame. Keep the preview active and try the next shot again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        sendPhoto(capturedPhoto, shotIndex);
+        setCountdownDisplay(null);
+        setFlash(true);
+        setTimeout(() => {
+          if (active) {
+            setFlash(false);
+          }
+        }, 200);
+      })();
     };
 
     window.addEventListener("snapbooth-capture", handler);
-    return () => window.removeEventListener("snapbooth-capture", handler);
-  }, []);
+    return () => {
+      active = false;
+      window.removeEventListener("snapbooth-capture", handler);
+    };
+  }, [sendPhoto, toast]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -193,8 +224,6 @@ export default function Room() {
       setTimeout(() => setLocation("/result"), 600);
     }
   }, [store.status, setLocation]);
-
-  const { sendStart, sendPhoto } = useRoomWs();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(`${window.location.origin}/room/${roomId}`);
@@ -318,8 +347,8 @@ export default function Room() {
       </header>
 
       {!isBooth ? (
-        <section className="mx-auto grid min-h-[calc(100dvh-82px)] max-w-7xl gap-4 px-4 py-4 sm:gap-6 sm:px-5 sm:py-6 lg:grid-cols-[390px_1fr] lg:px-8">
-          <aside className="rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 text-[#20100d] shadow-[8px_8px_0_#20100d]">
+        <section className="mx-auto grid min-h-[calc(100dvh-82px)] w-full min-w-0 max-w-7xl gap-4 px-4 py-4 sm:gap-6 sm:px-5 sm:py-6 lg:grid-cols-[390px_1fr] lg:px-8">
+          <aside className="min-w-0 rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 text-[#20100d] shadow-[8px_8px_0_#20100d]">
             <div className="mb-6 border-b-[3px] border-[#20100d] pb-5">
               <p className="text-sm font-bold uppercase text-[#9f1714]">Invite ticket</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -398,7 +427,7 @@ export default function Room() {
             </div>
           </aside>
 
-          <section className="flex min-h-[320px] flex-col justify-center gap-4 sm:min-h-[420px]">
+          <section className="flex min-h-[320px] min-w-0 flex-col justify-center gap-4 sm:min-h-[420px]">
             <p className="text-sm font-bold uppercase text-[#ffcc3d]">Live preview</p>
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border-[4px] border-[#20100d] bg-black shadow-[7px_7px_0_#ffcc3d] sm:border-[6px] sm:shadow-[10px_10px_0_#ffcc3d]">
               {hasPermission === null && (

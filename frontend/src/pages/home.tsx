@@ -106,7 +106,7 @@ export default function Home() {
       <section className="arcade-hero relative isolate min-h-[72dvh] px-5 py-5 md:min-h-[76dvh] md:px-10 md:py-8">
         <div className="arcade-scanlines" />
 
-        <nav className="relative z-20 mx-auto flex w-full max-w-[calc(100vw-2.5rem)] items-center justify-between md:max-w-7xl">
+        <nav className="relative z-20 mx-auto flex w-full min-w-0 max-w-full items-center justify-between md:max-w-7xl">
           <a
             href="#top"
             className="flex items-center gap-2 text-sm font-bold text-[#fff4d1]"
@@ -124,7 +124,7 @@ export default function Home() {
           </a>
         </nav>
 
-        <div className="relative z-10 mx-auto grid w-full min-w-0 max-w-[calc(100vw-2.5rem)] items-center gap-5 py-6 md:max-w-7xl md:grid-cols-[0.92fr_1.08fr] md:gap-10 md:py-12 lg:gap-16">
+        <div className="relative z-10 mx-auto grid w-full min-w-0 max-w-full items-center gap-5 py-6 md:max-w-7xl md:grid-cols-[0.92fr_1.08fr] md:gap-10 md:py-12 lg:gap-16">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -190,7 +190,7 @@ export default function Home() {
       </section>
 
       <section id="start" className="relative z-10 bg-[#f7edcf] px-5 py-8 text-[#20100d] md:px-10 md:py-16">
-        <div className="mx-auto w-full max-w-[calc(100vw-2.5rem)] md:max-w-7xl">
+        <div className="mx-auto w-full min-w-0 max-w-full md:max-w-7xl">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="mb-2 text-sm font-bold uppercase text-[#9f1714]">

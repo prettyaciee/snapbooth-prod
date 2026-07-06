@@ -10,7 +10,7 @@ export default function NotFound() {
       <div className="film-grain" />
       <div className="arcade-scanlines" />
 
-      <nav className="relative z-20 mx-auto flex w-full max-w-[calc(100vw-2.5rem)] items-center justify-between py-5 md:max-w-7xl md:py-8">
+      <nav className="relative z-20 mx-auto flex w-full min-w-0 max-w-full items-center justify-between py-5 md:max-w-7xl md:py-8">
         <button
           type="button"
           onClick={() => setLocation("/")}

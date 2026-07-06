@@ -115,8 +115,8 @@ export default function Result() {
     <main className="arcade-route min-h-[100dvh] bg-[#2c0707] text-[#fff4d1]">
       <div className="film-grain" />
 
-      <div className="mx-auto grid min-h-[100dvh] max-w-7xl gap-4 px-4 py-4 sm:gap-6 sm:px-5 sm:py-6 lg:grid-cols-[360px_1fr] lg:px-8">
-        <aside className="flex flex-col justify-center">
+      <div className="mx-auto grid min-h-[100dvh] w-full min-w-0 max-w-7xl gap-4 px-4 py-4 sm:gap-6 sm:px-5 sm:py-6 lg:grid-cols-[360px_1fr] lg:px-8">
+        <aside className="flex min-w-0 flex-col justify-center">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -180,7 +180,7 @@ export default function Result() {
           </motion.div>
         </aside>
 
-        <section className="w-full overflow-x-auto py-4 sm:py-6">
+        <section className="w-full min-w-0 overflow-x-auto py-4 sm:py-6">
           <motion.div
             initial={{ opacity: 0, y: 28, rotate: -1.5 }}
             animate={{ opacity: 1, y: 0, rotate: -1 }}
