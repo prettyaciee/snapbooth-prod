@@ -14,6 +14,13 @@ test("buildApiUrl prefixes configured API base URL and trims trailing slash", ()
   );
 });
 
+test("buildApiUrl appends the /api path when the configured backend URL is origin-only", () => {
+  assert.equal(
+    buildApiUrl("/rooms", "https://snapbooth-prod-backend.onrender.com"),
+    "https://snapbooth-prod-backend.onrender.com/api/rooms",
+  );
+});
+
 test("buildWebSocketUrl derives a secure websocket URL from the configured API base URL", () => {
   assert.equal(
     buildWebSocketUrl(
@@ -33,6 +40,18 @@ test("buildWebSocketUrl falls back to the local development websocket URL when n
   );
 });
 
+test("buildWebSocketUrl appends the /api path when the configured backend URL is origin-only", () => {
+  assert.equal(
+    buildWebSocketUrl(
+      "/ws?roomId=ROOM1",
+      "https://snapbooth-prod-backend.onrender.com",
+      "https://snapbooth.netlify.app",
+      "snapbooth.netlify.app",
+    ),
+    "wss://snapbooth-prod-backend.onrender.com/api/ws?roomId=ROOM1",
+  );
+});
+
 test("validateProductionApiBaseUrl requires VITE_API_BASE_URL for production builds", () => {
   assert.throws(
     () => validateProductionApiBaseUrl(""),
@@ -44,5 +63,12 @@ test("validateProductionApiBaseUrl trims trailing slashes from configured produc
   assert.equal(
     validateProductionApiBaseUrl("https://snapbooth-backend.onrender.com/api/"),
     "https://snapbooth-backend.onrender.com/api",
+  );
+});
+
+test("validateProductionApiBaseUrl appends /api when the configured production backend URL is origin-only", () => {
+  assert.equal(
+    validateProductionApiBaseUrl("https://snapbooth-prod-backend.onrender.com"),
+    "https://snapbooth-prod-backend.onrender.com/api",
   );
 });
