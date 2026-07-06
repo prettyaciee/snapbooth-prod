@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: snapbooth-backend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build -w backend
+    startCommand: npm start -w backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+    autoDeploy: true
