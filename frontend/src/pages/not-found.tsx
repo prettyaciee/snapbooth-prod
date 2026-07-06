@@ -1,27 +1,55 @@
-import { Link } from "wouter";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Camera, HelpCircle } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function NotFound() {
+  const [, setLocation] = useLocation();
+
   return (
-    <main className="arcade-route flex min-h-[100dvh] items-center justify-center bg-[#2c0707] px-5 py-10 text-[#fff4d1]">
+    <main className="snapbooth-landing min-h-[100dvh] overflow-hidden bg-[#2c0707] text-[#fff4d1] flex flex-col">
       <div className="film-grain" />
-      <section className="w-full max-w-[calc(100vw-4rem)] overflow-hidden rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-6 text-[#20100d] shadow-[6px_6px_0_#ffcc3d] md:max-w-xl md:p-8 md:shadow-[8px_8px_0_#ffcc3d]">
-        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[8px] border-[3px] border-[#20100d] bg-[#9f1714] text-[#fff8df]">
-          <AlertCircle size={28} aria-hidden="true" />
-        </div>
-        <p className="mb-2 text-sm font-bold uppercase text-[#9f1714]">404 ticket jam</p>
-        <h1 className="font-serif text-5xl leading-none [letter-spacing:0]">Page not found</h1>
-        <p className="mt-5 max-w-[18rem] font-medium leading-7 text-[#5f3427] md:max-w-md">
-          This booth slot is empty. Head back to the cabinet and start a fresh strip.
-        </p>
-        <Link
-          href="/"
-          className="mt-7 inline-flex items-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-[#ffcc3d] px-5 py-3 font-bold text-[#20100d] shadow-[5px_5px_0_#20100d] transition hover:bg-[#24d8d0] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+      <div className="arcade-scanlines" />
+
+      <nav className="relative z-20 mx-auto flex w-full max-w-[calc(100vw-2.5rem)] items-center justify-between py-5 md:max-w-7xl md:py-8">
+        <button
+          type="button"
+          onClick={() => setLocation("/")}
+          className="flex items-center gap-2 text-sm font-bold text-[#fff4d1] transition-colors hover:text-[#24d8d0]"
         >
-          <ArrowLeft size={18} aria-hidden="true" />
-          Back to SnapBooth
-        </Link>
-      </section>
+          <Camera size={18} aria-hidden="true" />
+          <span>SnapBooth</span>
+        </button>
+      </nav>
+
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="mx-auto flex max-w-xl flex-col items-center"
+        >
+          <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[12px] border-[4px] border-[#20100d] bg-[#ffcc3d] text-[#20100d] shadow-[8px_8px_0_#15100c]">
+            <HelpCircle size={48} strokeWidth={2.5} aria-hidden="true" />
+          </div>
+
+          <h1 className="mb-4 font-serif text-6xl leading-none text-[#ffefb0] md:text-8xl [letter-spacing:0]">
+            404
+          </h1>
+
+          <p className="mb-8 max-w-md text-lg font-medium text-[#ffe8a8] md:text-xl">
+            Looks like this photo strip got stuck in the machine. The page you're looking for doesn't exist.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setLocation("/")}
+            className="inline-flex items-center gap-2 rounded-[8px] border-[3px] border-[#15100c] bg-[#24d8d0] px-6 py-4 text-lg font-bold text-[#15100c] shadow-[6px_6px_0_#15100c] transition hover:-translate-y-1 hover:shadow-[6px_8px_0_#15100c] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 active:translate-y-0 active:shadow-[2px_2px_0_#15100c]"
+          >
+            <ArrowLeft size={20} aria-hidden="true" />
+            Back to Arcade
+          </button>
+        </motion.div>
+      </div>
     </main>
   );
 }

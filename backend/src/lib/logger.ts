@@ -1,6 +1,7 @@
 import pino from "pino";
 
 const isProduction = process.env.NODE_ENV === "production";
+console.log("hello");
 
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
@@ -12,9 +13,9 @@ export const logger = pino({
   ...(isProduction
     ? {}
     : {
-        transport: {
-          target: "pino-pretty",
-          options: { colorize: true },
-        },
-      }),
+      transport: {
+        target: "pino-pretty",
+        options: { colorize: true },
+      },
+    }),
 });

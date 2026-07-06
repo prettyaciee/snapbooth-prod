@@ -1,17 +1,18 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { createRoom, getRoomInfo } from "../lib/roomStore";
+import {
+  type CreateRoomLocals,
+  validateCreateRoom,
+} from "../middlewares/validateCreateRoom";
 
 const router: IRouter = Router();
 
-router.post("/rooms", async (req, res): Promise<void> => {
-  const { groupSize } = req.body as { groupSize?: unknown };
-
-  const size = Number(groupSize);
-  if (!size || size < 2 || size > 6 || !Number.isInteger(size)) {
-    res.status(400).json({ error: "groupSize must be an integer between 2 and 6" });
-    return;
-  }
-
+router.post("/rooms", validateCreateRoom, (req, res: Response<{
+  roomId: string;
+  hostId: string;
+  groupSize: number;
+}, CreateRoomLocals>): void => {
+  const size = res.locals.groupSize;
   const { roomId, hostId } = createRoom(size);
   req.log.info({ roomId, groupSize: size }, "Room created");
   res.status(201).json({ roomId, hostId, groupSize: size });
