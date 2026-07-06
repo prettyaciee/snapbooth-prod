@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npm run build -w frontend"
+  command = "npm install && npm run build:frontend"
   publish = "frontend/dist/public"
 
 [build.environment]
