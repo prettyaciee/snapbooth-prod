@@ -1,8 +1,4 @@
-const DEFAULT_LOCAL_API_BASE_URL = "http://localhost:3001/api";
-
-function normalizeApiBaseUrl(apiBaseUrl?: string): string {
-  return (apiBaseUrl ?? "").trim().replace(/\/+$/, "");
-}
+import { DEFAULT_LOCAL_API_BASE_URL, normalizeApiBaseUrl } from "./api-config";
 
 function joinPath(basePath: string, endpointPath: string): string {
   const normalizedBasePath = basePath.endsWith("/")

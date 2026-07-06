@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildApiUrl, buildWebSocketUrl } from "../../../frontend/src/lib/api";
+import { validateProductionApiBaseUrl } from "../../../frontend/src/lib/api-config";
 
 test("buildApiUrl falls back to the local development API base URL when no API base URL is configured", () => {
   assert.equal(buildApiUrl("/rooms", ""), "http://localhost:3001/api/rooms");
@@ -29,5 +30,19 @@ test("buildWebSocketUrl falls back to the local development websocket URL when n
   assert.equal(
     buildWebSocketUrl("/ws?roomId=ROOM1", "", "https://snapbooth.netlify.app", "snapbooth.netlify.app"),
     "ws://localhost:3001/api/ws?roomId=ROOM1",
+  );
+});
+
+test("validateProductionApiBaseUrl requires VITE_API_BASE_URL for production builds", () => {
+  assert.throws(
+    () => validateProductionApiBaseUrl(""),
+    /VITE_API_BASE_URL is required for production frontend builds/,
+  );
+});
+
+test("validateProductionApiBaseUrl trims trailing slashes from configured production API base URLs", () => {
+  assert.equal(
+    validateProductionApiBaseUrl("https://snapbooth-backend.onrender.com/api/"),
+    "https://snapbooth-backend.onrender.com/api",
   );
 });
