@@ -95,7 +95,7 @@ export default function Result() {
     setLocation("/");
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!downloadAsset) {
       toast({
         title: "Still preparing",
@@ -103,31 +103,6 @@ export default function Result() {
         variant: "destructive",
       });
       return;
-    }
-
-    try {
-      if (
-        typeof navigator !== "undefined" &&
-        "share" in navigator &&
-        "canShare" in navigator
-      ) {
-        const file = new File([downloadAsset.blob], downloadAsset.filename, {
-          type: downloadAsset.blob.type || "image/png",
-        });
-
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: downloadAsset.filename,
-          });
-          return;
-        }
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-      console.error(error);
     }
 
     const link = document.createElement("a");
@@ -221,7 +196,7 @@ export default function Result() {
             initial={{ opacity: 0, y: 28, rotate: -1.5 }}
             animate={{ opacity: 1, y: 0, rotate: -1 }}
             transition={{ delay: 0.08, duration: 0.5 }}
-            className="min-w-max sm:max-w-full"
+            className="mx-auto w-fit min-w-max"
           >
             <div
               ref={stripRef}
@@ -231,7 +206,7 @@ export default function Result() {
                 className="mb-4 grid"
                 style={{
                   gap: `${stripLayout.gapPx}px`,
-                  gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(${stripLayout.columnMinWidth}px, 1fr))`,
+                  gridTemplateColumns: `repeat(${orderedParticipants.length}, ${stripLayout.columnWidthPx}px)`,
                 }}
               >
                 {orderedParticipants.map((participant) => (
@@ -253,7 +228,7 @@ export default function Result() {
                       className="grid"
                       style={{
                         gap: `${stripLayout.gapPx}px`,
-                        gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(${stripLayout.columnMinWidth}px, 1fr))`,
+                        gridTemplateColumns: `repeat(${orderedParticipants.length}, ${stripLayout.columnWidthPx}px)`,
                       }}
                     >
                       {orderedParticipants.map((participant) => {

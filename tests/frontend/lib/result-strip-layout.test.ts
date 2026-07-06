@@ -4,14 +4,19 @@ import { getResultStripLayout } from "../../../frontend/src/lib/result-strip-lay
 
 test("result strip layout uses tighter columns for crowded participant grids", () => {
   assert.deepEqual(getResultStripLayout(6), {
-    columnMinWidth: 92,
+    columnWidthPx: 92,
     gapPx: 12,
   });
 });
 
-test("result strip layout keeps roomier columns for smaller groups", () => {
+test("result strip layout keeps a readable fixed preview width for smaller groups", () => {
+  assert.deepEqual(getResultStripLayout(1), {
+    columnWidthPx: 168,
+    gapPx: 18,
+  });
+
   assert.deepEqual(getResultStripLayout(3), {
-    columnMinWidth: 120,
+    columnWidthPx: 132,
     gapPx: 16,
   });
 });

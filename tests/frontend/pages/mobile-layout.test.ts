@@ -30,6 +30,13 @@ test("room page reattaches the live camera stream when the booth video remounts"
 test("result page keeps the strip inside a shrinkable scroll region and uses responsive strip layout", () => {
   assert.match(resultSource, /className="w-full min-w-0 overflow-x-auto py-4 sm:py-6"/);
   assert.match(resultSource, /getResultStripLayout\(orderedParticipants\.length\)/);
+  assert.match(resultSource, /gridTemplateColumns: `repeat\(\$\{orderedParticipants\.length\}, \$\{stripLayout\.columnWidthPx\}px\)`/);
+});
+
+test("result page download button stays on a direct file download path", () => {
+  assert.match(resultSource, /link\.download = downloadAsset\.filename/);
+  assert.match(resultSource, /link\.click\(\)/);
+  assert.doesNotMatch(resultSource, /navigator\.share|canShare/);
 });
 
 test("global grain overlay is pinned with inset instead of viewport width sizing", () => {
