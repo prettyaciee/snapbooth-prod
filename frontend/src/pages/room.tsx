@@ -1,55 +1,59 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Camera,
+  Check,
+  Copy,
+  DoorOpen,
+  Play,
+  Radio,
+  Users,
+  X,
+} from "lucide-react";
 import { usePhotoStore } from "@/lib/store";
 import { useRoomWs } from "@/hooks/use-room-ws";
-import { Camera, X, Copy, Check, Users } from "lucide-react";
 import { buildApiUrl } from "@/lib/api";
+import { BOOTH_FRAME_COUNT, ROOM_MODE_BY_SIZE } from "@/lib/arcade-ui";
 
 type Phase = "fetching" | "name_entry" | "ready";
-
-const GROUP_SIZE_TO_MODE: Record<number, string> = {
-  2: "Duo", 3: "Trio", 4: "Quadro", 5: "Cinco", 6: "Six",
-};
 
 export default function Room() {
   const { roomId } = useParams<{ roomId: string }>();
   const [, setLocation] = useLocation();
   const store = usePhotoStore();
 
-  // Phase management — local state so no store dependency loop
   const initialPhase: Phase = store.myName && store.roomId ? "ready" : "fetching";
   const [phase, setPhase] = useState<Phase>(initialPhase);
   const [fetchedGroupSize, setFetchedGroupSize] = useState(store.groupSize ?? 0);
   const [joinName, setJoinName] = useState("");
   const [fetchError, setFetchError] = useState(false);
 
-  // Stable participant ID — created once per mount for guest
   const myParticipantId = useRef(store.myParticipantId || crypto.randomUUID()).current;
 
-  // Camera
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
-  // Booth UI
   const [flash, setFlash] = useState(false);
   const [countdownDisplay, setCountdownDisplay] = useState<number | null>(null);
-  const [celebrationPhotos, setCelebrationPhotos] = useState<{ participantId: string; name: string; data: string }[] | null>(null);
-
-  // Share
+  const [celebrationPhotos, setCelebrationPhotos] = useState<
+    { participantId: string; name: string; data: string }[] | null
+  >(null);
   const [copied, setCopied] = useState(false);
 
-  // ── Step 1: fetch room info for guests ──────────────────────────────────────
   useEffect(() => {
     if (phase !== "fetching") return;
-    if (!roomId) { setLocation("/"); return; }
+    if (!roomId) {
+      setLocation("/");
+      return;
+    }
 
     fetch(buildApiUrl(`/rooms/${roomId}`))
-      .then((r) => {
-        if (!r.ok) throw new Error("not found");
-        return r.json() as Promise<{ roomId: string; groupSize: number; status: string }>;
+      .then((response) => {
+        if (!response.ok) throw new Error("not found");
+        return response.json() as Promise<{ roomId: string; groupSize: number; status: string }>;
       })
       .then((data) => {
         setFetchedGroupSize(data.groupSize);
@@ -61,7 +65,6 @@ export default function Room() {
       });
   }, [phase, roomId, setLocation]);
 
-  // ── Step 2: guest submits name ───────────────────────────────────────────────
   const handleJoin = () => {
     if (!joinName.trim() || !roomId) return;
     store.setRoomInfo({
@@ -71,66 +74,75 @@ export default function Room() {
       myName: joinName.trim(),
       isHost: false,
       groupSize: fetchedGroupSize,
-      mode: GROUP_SIZE_TO_MODE[fetchedGroupSize] ?? "Group",
+      mode: ROOM_MODE_BY_SIZE[fetchedGroupSize] ?? "Group",
     });
     setPhase("ready");
   };
 
-  // ── Camera setup ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "ready") return;
     let active = true;
+
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } } })
-      .then((s) => {
-        if (!active) { s.getTracks().forEach((t) => t.stop()); return; }
-        streamRef.current = s;
-        if (videoRef.current) videoRef.current.srcObject = s;
+      .getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } },
+      })
+      .then((stream) => {
+        if (!active) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
         setHasPermission(true);
       })
-      .catch(() => { if (active) setHasPermission(false); });
+      .catch(() => {
+        if (active) setHasPermission(false);
+      });
+
     return () => {
       active = false;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, [phase]);
 
-  // ── Capture listener ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const handler = (e: Event) => {
-      const { shotIndex } = (e as CustomEvent<{ shotIndex: number }>).detail;
+    const handler = (event: Event) => {
+      const { shotIndex } = (event as CustomEvent<{ shotIndex: number }>).detail;
       if (!videoRef.current || !canvasRef.current) return;
+
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-      sendPhoto(dataUrl, shotIndex);
+      sendPhoto(canvas.toDataURL("image/jpeg", 0.9), shotIndex);
       setCountdownDisplay(null);
       setFlash(true);
       setTimeout(() => setFlash(false), 200);
     };
+
     window.addEventListener("snapbooth-capture", handler);
     return () => window.removeEventListener("snapbooth-capture", handler);
   }, []);
 
-  // ── Countdown listener ───────────────────────────────────────────────────────
   useEffect(() => {
-    const handler = (e: Event) => {
-      const { count } = (e as CustomEvent<{ count: number }>).detail;
+    const handler = (event: Event) => {
+      const { count } = (event as CustomEvent<{ count: number }>).detail;
       setCountdownDisplay(count);
       setCelebrationPhotos(null);
     };
+
     window.addEventListener("snapbooth-countdown-ui", handler);
     return () => window.removeEventListener("snapbooth-countdown-ui", handler);
   }, []);
 
-  // ── Watch celebration (shot_complete) ────────────────────────────────────────
   const prevShotsLen = useRef(0);
   useEffect(() => {
     if (store.shots.length > prevShotsLen.current) {
@@ -143,10 +155,9 @@ export default function Room() {
     }
   }, [store.shots]);
 
-  // ── Navigate to result when done ─────────────────────────────────────────────
   useEffect(() => {
     if (store.status === "done") {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current?.getTracks().forEach((track) => track.stop());
       setTimeout(() => setLocation("/result"), 600);
     }
   }, [store.status, setLocation]);
@@ -160,171 +171,174 @@ export default function Room() {
   };
 
   const handleLeave = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach((track) => track.stop());
     store.clear();
     setLocation("/");
   };
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // Phase: fetching
-  // ════════════════════════════════════════════════════════════════════════════
   if (phase === "fetching") {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center gap-4">
+      <main className="arcade-route min-h-[100dvh] bg-[#2c0707] px-5 text-[#fff4d1]">
         <div className="film-grain" />
-        {fetchError ? (
-          <p className="font-serif text-2xl text-destructive">Room not found. Redirecting...</p>
-        ) : (
-          <p className="font-serif text-3xl text-secondary animate-pulse">Finding room...</p>
-        )}
-      </div>
+        <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col items-center justify-center text-center">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[8px] border-[3px] border-[#ffcc3d] bg-[#1a0505]">
+            <Radio className="text-[#ffcc3d]" size={26} aria-hidden="true" />
+          </div>
+          <h1 className="font-serif text-4xl leading-none text-[#ffefb0] [letter-spacing:0]">
+            {fetchError ? "Signal lost" : "Finding room"}
+          </h1>
+          <p className="mt-4 max-w-sm font-bold text-[#ffe8a8]">
+            {fetchError ? "Room not found. Returning to the cabinet." : "Tuning into the booth channel."}
+          </p>
+        </div>
+      </main>
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // Phase: name entry (guest)
-  // ════════════════════════════════════════════════════════════════════════════
   if (phase === "name_entry") {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-6 relative">
+      <main className="arcade-route min-h-[100dvh] bg-[#2c0707] px-5 py-8 text-[#fff4d1]">
         <div className="film-grain" />
-        <div className="absolute top-0 left-0 w-64 h-full bg-secondary/20 blur-[100px] pointer-events-none" />
-        <div className="absolute top-0 right-0 w-64 h-full bg-secondary/20 blur-[100px] pointer-events-none" />
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card border-2 border-border rounded-3xl p-10 max-w-md w-full shadow-2xl z-10"
-        >
-          <h1 className="font-serif text-5xl text-secondary mb-2">SnapBooth</h1>
-          <p className="text-muted-foreground mb-1">You've been invited to a</p>
-          <p className="font-bold text-foreground text-xl mb-8">
-            {GROUP_SIZE_TO_MODE[fetchedGroupSize] ?? "Group"} session
-          </p>
-
-          <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-            Your Name
-          </label>
-          <input
-            type="text"
-            value={joinName}
-            onChange={(e) => setJoinName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-            placeholder="Enter your name"
-            autoFocus
-            data-testid="input-guest-name"
-            className="w-full px-4 py-3 bg-background border-2 border-border rounded-xl text-lg mb-6 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all"
-          />
-
-          <button
-            onClick={handleJoin}
-            disabled={!joinName.trim()}
-            data-testid="button-join-room"
-            className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        <section className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-5xl items-center gap-8 md:grid-cols-[0.9fr_1.1fr]">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="min-w-0"
           >
-            Join Session
-          </button>
-        </motion.div>
-      </div>
+            <p className="mb-3 inline-flex border-y border-[#ffcc3d]/50 py-2 text-sm font-bold text-[#ffcc3d]">
+              Guest ticket
+            </p>
+            <h1 className="font-serif text-5xl leading-none text-[#ffefb0] [letter-spacing:0] md:text-7xl">
+              Join the booth
+            </h1>
+            <p className="mt-5 max-w-lg text-lg font-bold leading-8 text-[#ffe8a8]">
+              You were invited to a {ROOM_MODE_BY_SIZE[fetchedGroupSize] ?? "Group"} strip session.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-6 text-[#20100d] shadow-[8px_8px_0_#ffcc3d]"
+          >
+            <label className="mb-3 block text-sm font-bold uppercase text-[#9f1714]">
+              Your name on the strip
+            </label>
+            <input
+              type="text"
+              value={joinName}
+              onChange={(event) => setJoinName(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && handleJoin()}
+              placeholder="Enter your name"
+              autoFocus
+              data-testid="input-guest-name"
+              className="mb-5 w-full rounded-[8px] border-[3px] border-[#20100d] bg-white px-4 py-3 text-lg font-bold text-[#20100d] outline-none transition placeholder:text-[#9b8172] focus:border-[#24d8d0] focus:ring-4 focus:ring-[#24d8d0]/20"
+            />
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={!joinName.trim()}
+              data-testid="button-join-room"
+              className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-[#9f1714] px-5 py-4 text-lg font-bold text-[#fff8df] shadow-[5px_5px_0_#20100d] transition hover:bg-[#24d8d0] hover:text-[#20100d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              Enter booth
+              <DoorOpen size={20} aria-hidden="true" />
+            </button>
+          </motion.div>
+        </section>
+      </main>
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // Phase: ready (lobby + booth)
-  // ════════════════════════════════════════════════════════════════════════════
   const isBooth = store.status === "countdown" || store.status === "capturing";
   const totalSlots = store.groupSize || fetchedGroupSize;
+  const currentShot = (store.currentShotIndex ?? 0) + 1;
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col relative overflow-hidden">
+    <main className="arcade-route min-h-[100dvh] bg-[#2c0707] text-[#fff4d1]">
       <div className="film-grain" />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* ── Top bar ──────────────────────────────────────────────────────────── */}
-      <div className="flex justify-between items-center px-6 py-4 border-b border-border z-10 bg-background/80 backdrop-blur-sm">
-        <h1 className="font-serif text-3xl text-secondary">SnapBooth</h1>
+      <header className="relative z-20 flex items-center justify-between border-b border-[#ffcc3d]/25 bg-[#160303]/88 px-5 py-4 backdrop-blur md:px-8">
+        <div>
+          <p className="text-xs font-bold uppercase text-[#ffcc3d]">SnapBooth room</p>
+          <h1 className="font-serif text-3xl leading-none text-[#ffefb0] [letter-spacing:0]">
+            {store.roomId || roomId}
+          </h1>
+        </div>
         <div className="flex items-center gap-3">
           {isBooth && (
-            <span className="font-mono text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
-              Shot {(store.currentShotIndex ?? 0) + 1} of 4
+            <span className="hidden rounded-[999px] border border-[#ffcc3d]/50 px-3 py-1 text-sm font-bold text-[#ffcc3d] sm:inline-flex">
+              Shot {currentShot} of {BOOTH_FRAME_COUNT}
             </span>
           )}
           <button
+            type="button"
             onClick={handleLeave}
             data-testid="button-leave-room"
-            className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground"
+            className="rounded-[8px] border border-[#fff4d1]/25 p-2 text-[#fff4d1] transition hover:border-[#24d8d0] hover:text-[#24d8d0] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+            aria-label="Leave room"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* ── Main content ─────────────────────────────────────────────────────── */}
       {!isBooth ? (
-        // ── LOBBY ────────────────────────────────────────────────────────────
-        <div className="flex flex-col lg:flex-row flex-1 min-h-0">
-          {/* Left: room info + participants */}
-          <div className="w-full lg:w-[420px] flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card/30 p-6 lg:p-8 flex flex-col gap-6 overflow-y-auto">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Room Code</p>
-              <h2 className="font-serif text-4xl text-secondary font-bold tracking-wider">{store.roomId || roomId}</h2>
-            </div>
-
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Invite Link</p>
-              <div className="flex gap-2">
-                <div className="flex-1 bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-muted-foreground truncate font-mono">
-                  {window.location.origin}/room/{roomId}
+        <section className="mx-auto grid min-h-[calc(100dvh-82px)] max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[390px_1fr] lg:px-8">
+          <aside className="rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 text-[#20100d] shadow-[8px_8px_0_#20100d]">
+            <div className="mb-6 border-b-[3px] border-[#20100d] pb-5">
+              <p className="text-sm font-bold uppercase text-[#9f1714]">Invite ticket</p>
+              <div className="mt-3 flex gap-2">
+                <div className="min-w-0 flex-1 rounded-[8px] border-2 border-[#20100d] bg-white px-3 py-2 font-mono text-sm text-[#5f3427]">
+                  <span className="block truncate">{window.location.origin}/room/{roomId}</span>
                 </div>
                 <button
+                  type="button"
                   onClick={handleCopy}
                   data-testid="button-copy-link"
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shrink-0"
+                  className="inline-flex items-center gap-2 rounded-[8px] border-2 border-[#20100d] bg-[#ffcc3d] px-3 py-2 text-sm font-bold shadow-[3px_3px_0_#20100d] transition hover:bg-[#24d8d0] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
                 >
-                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
                   {copied ? "Copied" : "Copy"}
                 </button>
               </div>
             </div>
 
-            <div className="flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
-                Participants ({store.participants.length} / {totalSlots})
+            <div>
+              <p className="mb-3 text-sm font-bold uppercase text-[#9f1714]">
+                Players {store.participants.length}/{totalSlots}
               </p>
-              <div className="flex flex-col gap-2">
-                {Array.from({ length: totalSlots }).map((_, i) => {
-                  const p = store.participants[i];
+              <div className="grid gap-3">
+                {Array.from({ length: totalSlots }).map((_, index) => {
+                  const participant = store.participants[index];
                   return (
                     <motion.div
-                      key={i}
+                      key={index}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                      data-testid={`participant-slot-${i}`}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${
-                        p ? "border-primary/30 bg-primary/5" : "border-dashed border-border/60 bg-muted/20"
+                      transition={{ delay: index * 0.04 }}
+                      data-testid={`participant-slot-${index}`}
+                      className={`flex min-h-16 items-center gap-3 rounded-[8px] border-2 px-3 py-3 ${
+                        participant
+                          ? "border-[#20100d] bg-[#ffefb0]"
+                          : "border-dashed border-[#9b8172] bg-[#f1dfb8]"
                       }`}
                     >
-                      {p ? (
-                        <>
-                          <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-sm shrink-0">
-                            {p.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-foreground truncate">{p.name}</p>
-                            {p.isHost && <p className="text-xs text-muted-foreground">Host</p>}
-                          </div>
-                          {p.id === store.myParticipantId && (
-                            <span className="text-xs text-primary font-bold uppercase tracking-wider shrink-0">You</span>
-                          )}
-                        </>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border-2 border-[#20100d] bg-[#24d8d0] font-bold">
+                        {participant ? participant.name.charAt(0).toUpperCase() : <Users size={17} aria-hidden="true" />}
+                      </span>
+                      {participant ? (
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-bold">{participant.name}</p>
+                          <p className="text-xs font-bold uppercase text-[#9f1714]">
+                            {participant.isHost ? "Host" : "Guest"}
+                            {participant.id === store.myParticipantId ? " / You" : ""}
+                          </p>
+                        </div>
                       ) : (
-                        <>
-                          <div className="w-9 h-9 rounded-full border-2 border-dashed border-border flex items-center justify-center shrink-0">
-                            <Users size={15} className="text-muted-foreground" />
-                          </div>
-                          <p className="text-muted-foreground text-sm animate-pulse">Waiting...</p>
-                        </>
+                        <p className="text-sm font-bold text-[#7c5d4c]">Waiting for player</p>
                       )}
                     </motion.div>
                   );
@@ -332,41 +346,39 @@ export default function Room() {
               </div>
             </div>
 
-            <div>
+            <div className="mt-6">
               {store.isHost ? (
                 <button
+                  type="button"
                   onClick={sendStart}
                   disabled={store.participants.length < 2}
                   data-testid="button-start-session"
-                  className="w-full py-4 bg-secondary text-secondary-foreground rounded-xl font-bold text-lg hover:bg-secondary/90 transition-colors shadow-lg shadow-secondary/20 disabled:opacity-40 disabled:cursor-not-allowed uppercase tracking-wider"
+                  className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-[#9f1714] px-5 py-4 text-lg font-bold text-[#fff8df] shadow-[5px_5px_0_#20100d] transition hover:bg-[#24d8d0] hover:text-[#20100d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {store.participants.length < 2
-                    ? `Waiting for guests... (${store.participants.length}/${totalSlots})`
-                    : "Start Session"}
+                  {store.participants.length < 2 ? "Waiting for guests" : "Start session"}
+                  <Play size={20} aria-hidden="true" />
                 </button>
               ) : (
-                <p className="text-center py-4 text-muted-foreground font-medium animate-pulse">
-                  Waiting for host to start...
+                <p className="rounded-[8px] border-2 border-[#20100d] bg-[#f1dfb8] px-4 py-4 text-center font-bold text-[#5f3427]">
+                  Waiting for host to start
                 </p>
               )}
             </div>
-          </div>
+          </aside>
 
-          {/* Right: camera preview */}
-          <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-10 gap-4 min-h-0">
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Your Camera Preview</p>
-
-            <div className="relative w-full max-w-xl aspect-[4/3] bg-black rounded-2xl overflow-hidden border-4 border-border shadow-xl">
+          <section className="flex min-h-[420px] flex-col justify-center gap-4">
+            <p className="text-sm font-bold uppercase text-[#ffcc3d]">Live preview</p>
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border-[6px] border-[#20100d] bg-black shadow-[10px_10px_0_#ffcc3d]">
               {hasPermission === null && (
-                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
-                  <p className="font-serif text-xl text-primary animate-pulse">Connecting camera...</p>
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#160303]">
+                  <p className="font-serif text-2xl text-[#ffcc3d] [letter-spacing:0]">Connecting camera</p>
                 </div>
               )}
               {hasPermission === false && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 p-6 text-center">
-                  <Camera size={48} className="text-zinc-600 mb-3" />
-                  <p className="text-white font-bold mb-1">Camera Access Denied</p>
-                  <p className="text-zinc-400 text-sm">Allow camera access in your browser settings.</p>
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#160303] p-6 text-center">
+                  <Camera size={48} className="mb-3 text-[#ffcc3d]" aria-hidden="true" />
+                  <p className="font-bold text-white">Camera access denied</p>
+                  <p className="mt-1 max-w-sm text-sm text-white/70">Allow camera access in your browser settings.</p>
                 </div>
               )}
               <video
@@ -375,27 +387,25 @@ export default function Room() {
                 playsInline
                 muted
                 data-testid="video-lobby-preview"
-                className="w-full h-full object-cover scale-x-[-1]"
+                className="h-full w-full scale-x-[-1] object-cover"
               />
               {store.myName && (
-                <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10">
-                  <p className="text-white text-sm font-medium">{store.myName}</p>
+                <div className="absolute bottom-4 left-4 rounded-[8px] border-2 border-white/25 bg-black/55 px-3 py-2 text-sm font-bold text-white backdrop-blur">
+                  {store.myName}
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </section>
+        </section>
       ) : (
-        // ── BOOTH ────────────────────────────────────────────────────────────
-        <div className="flex-1 flex flex-col items-center justify-center p-4 bg-zinc-950 relative">
-          <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center gap-6">
-            {/* Viewfinder */}
-            <div className="relative w-full aspect-[4/3] bg-black rounded-3xl overflow-hidden border-8 border-secondary shadow-2xl shadow-secondary/30">
+        <section className="relative flex min-h-[calc(100dvh-82px)] flex-col items-center justify-center bg-[#070202] px-4 py-6">
+          <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center gap-5">
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border-[8px] border-[#9f1714] bg-black shadow-[0_0_0_4px_#20100d,0_28px_70px_rgba(255,204,61,0.22)]">
               {hasPermission === false && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 text-center p-8">
-                  <Camera size={64} className="text-zinc-600 mb-4" />
-                  <p className="text-white font-bold text-xl mb-2">Camera Access Denied</p>
-                  <p className="text-zinc-400">Please allow camera access to participate.</p>
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#160303] p-8 text-center">
+                  <Camera size={64} className="mb-4 text-[#ffcc3d]" aria-hidden="true" />
+                  <p className="text-xl font-bold text-white">Camera access denied</p>
+                  <p className="mt-2 text-white/70">Allow camera access to participate.</p>
                 </div>
               )}
               <video
@@ -404,10 +414,9 @@ export default function Room() {
                 playsInline
                 muted
                 data-testid="video-booth"
-                className="w-full h-full object-cover scale-x-[-1]"
+                className="h-full w-full scale-x-[-1] object-cover"
               />
 
-              {/* Flash */}
               <AnimatePresence>
                 {flash && (
                   <motion.div
@@ -415,12 +424,11 @@ export default function Room() {
                     animate={{ opacity: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.45 }}
-                    className="absolute inset-0 bg-white z-40 pointer-events-none"
+                    className="absolute inset-0 z-40 bg-white"
                   />
                 )}
               </AnimatePresence>
 
-              {/* Countdown */}
               <AnimatePresence mode="wait">
                 {countdownDisplay !== null && countdownDisplay > 0 && (
                   <motion.div
@@ -429,9 +437,9 @@ export default function Room() {
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 1.8, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                    className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
+                    className="absolute inset-0 z-30 flex items-center justify-center"
                   >
-                    <span className="font-serif text-[160px] md:text-[220px] font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)]">
+                    <span className="font-serif text-[8rem] font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)] [letter-spacing:0] md:text-[13rem]">
                       {countdownDisplay}
                     </span>
                   </motion.div>
@@ -442,37 +450,36 @@ export default function Room() {
                     initial={{ scale: 0.7, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 1.3, opacity: 0 }}
-                    className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
+                    className="absolute inset-0 z-30 flex items-center justify-center"
                   >
-                    <span className="font-serif text-[100px] md:text-[160px] font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)]">
+                    <span className="font-serif text-6xl font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)] [letter-spacing:0] md:text-9xl">
                       SMILE!
                     </span>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Celebration overlay */}
               <AnimatePresence>
                 {celebrationPhotos && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="absolute inset-0 bg-black/75 z-20 flex flex-col items-center justify-center gap-6 p-6"
+                    className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5 bg-black/78 p-5"
                   >
-                    <p className="font-serif text-3xl text-primary">Nice shot!</p>
+                    <p className="font-serif text-4xl text-[#ffcc3d] [letter-spacing:0]">Nice shot</p>
                     <div className="flex flex-wrap justify-center gap-4">
-                      {celebrationPhotos.map((ph) => (
+                      {celebrationPhotos.map((photo) => (
                         <motion.div
-                          key={ph.participantId}
+                          key={photo.participantId}
                           initial={{ scale: 0, rotate: -10 }}
                           animate={{ scale: 1, rotate: 0 }}
                           className="flex flex-col items-center gap-2"
                         >
-                          <div className="w-24 h-32 md:w-28 md:h-36 rounded-xl border-4 border-white/20 overflow-hidden shadow-xl">
-                            <img src={ph.data} alt={ph.name} className="w-full h-full object-cover" />
+                          <div className="h-32 w-24 overflow-hidden rounded-[8px] border-[3px] border-[#fff8df] shadow-xl md:h-36 md:w-28">
+                            <img src={photo.data} alt={photo.name} className="h-full w-full object-cover" />
                           </div>
-                          <span className="text-white/80 text-sm font-medium">{ph.name}</span>
+                          <span className="text-sm font-bold text-white/85">{photo.name}</span>
                         </motion.div>
                       ))}
                     </div>
@@ -481,32 +488,35 @@ export default function Room() {
               </AnimatePresence>
             </div>
 
-            {/* Thumbnails — my photos */}
-            <div className="flex gap-3 justify-center">
-              {[0, 1, 2, 3].map((i) => {
-                const shot = store.shots.find((s) => s.shotIndex === i);
-                const myPhoto = shot?.photos.find((p) => p.participantId === store.myParticipantId);
+            <div className="flex justify-center gap-3">
+              {Array.from({ length: BOOTH_FRAME_COUNT }).map((_, index) => {
+                const shot = store.shots.find((item) => item.shotIndex === index);
+                const myPhoto = shot?.photos.find((photo) => photo.participantId === store.myParticipantId);
                 return (
                   <div
-                    key={i}
-                    className="w-16 h-20 md:w-20 md:h-28 rounded-lg border-2 border-white/20 bg-black/50 overflow-hidden"
+                    key={index}
+                    className="h-20 w-16 overflow-hidden rounded-[8px] border-2 border-[#ffefb0]/25 bg-black/50 md:h-28 md:w-20"
                   >
-                    {myPhoto && (
+                    {myPhoto ? (
                       <motion.img
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         src={myPhoto.data}
-                        alt={`Shot ${i + 1}`}
-                        className="w-full h-full object-cover"
+                        alt={`Shot ${index + 1}`}
+                        className="h-full w-full object-cover"
                       />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/25">
+                        {index + 1}
+                      </div>
                     )}
                   </div>
                 );
               })}
             </div>
           </div>
-        </div>
+        </section>
       )}
-    </div>
+    </main>
   );
 }

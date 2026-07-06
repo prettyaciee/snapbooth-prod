@@ -1,16 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { usePhotoStore, FilterType } from "@/lib/store";
-import { Download, RefreshCcw } from "lucide-react";
-
-const FILTERS: { id: FilterType; label: string; css: string; canvasParams: string }[] = [
-  { id: "none", label: "Normal", css: "none", canvasParams: "none" },
-  { id: "grayscale", label: "B&W", css: "grayscale(100%) contrast(1.2)", canvasParams: "grayscale(100%) contrast(120%)" },
-  { id: "sepia", label: "Sepia", css: "sepia(80%) contrast(1.1) brightness(0.9)", canvasParams: "sepia(80%) contrast(110%) brightness(90%)" },
-  { id: "fade", label: "Fade", css: "brightness(1.1) contrast(0.8) saturate(0.8)", canvasParams: "brightness(110%) contrast(80%) saturate(80%)" },
-  { id: "vivid", label: "Vivid", css: "saturate(1.5) contrast(1.1)", canvasParams: "saturate(150%) contrast(110%)" },
-];
+import { Download, RefreshCcw, Sparkles } from "lucide-react";
+import { usePhotoStore } from "@/lib/store";
+import { ARCADE_FILTERS, BOOTH_FRAME_COUNT } from "@/lib/arcade-ui";
 
 export default function Result() {
   const [, setLocation] = useLocation();
@@ -36,50 +29,43 @@ export default function Result() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const activeFilter = FILTERS.find(f => f.id === filter) || FILTERS[0];
-    
-    // Sort participants to ensure consistent order
+    const activeFilter = ARCADE_FILTERS.find((item) => item.id === filter) || ARCADE_FILTERS[0];
     const orderedParticipants = [...participants].sort((a, b) => a.id.localeCompare(b.id));
 
-    // Calculate dimensions based on DOM elements to ensure accurate proportions
-    // Or just use fixed dimensions
     const cols = orderedParticipants.length || 1;
     const rows = shots.length;
-    
     const imgWidth = 400;
-    const imgHeight = 533; // 4:3 aspect ratio
+    const imgHeight = 533;
     const padding = 60;
     const colGap = 30;
     const rowGap = 30;
     const footerHeight = 200;
-    const headerHeight = 80; // For names
+    const headerHeight = 80;
 
-    canvas.width = (imgWidth * cols) + (colGap * (cols - 1)) + (padding * 2);
-    canvas.height = headerHeight + (imgHeight * rows) + (rowGap * (rows - 1)) + (padding * 2) + footerHeight;
+    canvas.width = imgWidth * cols + colGap * (cols - 1) + padding * 2;
+    canvas.height = headerHeight + imgHeight * rows + rowGap * (rows - 1) + padding * 2 + footerHeight;
 
-    ctx.fillStyle = "#f5f0e6"; // Warm cream
+    ctx.fillStyle = "#fff8df";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw participant names above columns
     ctx.font = "bold 32px 'DM Sans', sans-serif";
-    ctx.fillStyle = "#1a1c23";
+    ctx.fillStyle = "#20100d";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    
-    orderedParticipants.forEach((p, colIndex) => {
-      const x = padding + (colIndex * (imgWidth + colGap)) + (imgWidth / 2);
-      ctx.fillText(p.name, x, padding + headerHeight - 20);
+
+    orderedParticipants.forEach((participant, colIndex) => {
+      const x = padding + colIndex * (imgWidth + colGap) + imgWidth / 2;
+      ctx.fillText(participant.name, x, padding + headerHeight - 20);
     });
 
-    // Draw images
     for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
-      const shot = shots.find(s => s.shotIndex === rowIndex);
+      const shot = shots.find((item) => item.shotIndex === rowIndex);
       if (!shot) continue;
 
       for (let colIndex = 0; colIndex < cols; colIndex++) {
-        const p = orderedParticipants[colIndex];
-        const photo = shot.photos.find(ph => ph.participantId === p.id);
-        
+        const participant = orderedParticipants[colIndex];
+        const photo = shot.photos.find((item) => item.participantId === participant.id);
+
         if (photo) {
           const img = new Image();
           img.crossOrigin = "anonymous";
@@ -88,36 +74,28 @@ export default function Result() {
             img.src = photo.data;
           });
 
-          const x = padding + (colIndex * (imgWidth + colGap));
-          const y = padding + headerHeight + (rowIndex * (imgHeight + rowGap));
+          const x = padding + colIndex * (imgWidth + colGap);
+          const y = padding + headerHeight + rowIndex * (imgHeight + rowGap);
 
-          if (activeFilter.canvasParams !== "none") {
-            ctx.filter = activeFilter.canvasParams;
-          } else {
-            ctx.filter = "none";
-          }
-          
+          ctx.filter = activeFilter.canvasParams;
           ctx.drawImage(img, x, y, imgWidth, imgHeight);
-          
           ctx.filter = "none";
-          ctx.strokeStyle = "rgba(0,0,0,0.1)";
+          ctx.strokeStyle = "#20100d";
           ctx.lineWidth = 6;
           ctx.strokeRect(x, y, imgWidth, imgHeight);
         }
       }
     }
 
-    // Draw Footer
-    ctx.fillStyle = "#1a1c23";
+    const footerY = canvas.height - footerHeight / 2;
+    ctx.fillStyle = "#20100d";
     ctx.font = "bold 80px 'Limelight', serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    
-    const footerY = canvas.height - footerHeight / 2;
     ctx.fillText("SnapBooth", canvas.width / 2, footerY - 20);
-    
+
     ctx.font = "30px 'DM Sans', sans-serif";
-    ctx.fillStyle = "#666";
+    ctx.fillStyle = "#9f1714";
     ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, footerY + 50);
 
     const link = document.createElement("a");
@@ -128,120 +106,153 @@ export default function Result() {
 
   if (!shots || shots.length === 0) return null;
 
-  const currentFilterCss = FILTERS.find(f => f.id === filter)?.css || "none";
+  const currentFilterCss = ARCADE_FILTERS.find((item) => item.id === filter)?.css || "none";
   const orderedParticipants = [...participants].sort((a, b) => a.id.localeCompare(b.id));
 
   return (
-    <div className="min-h-[100dvh] w-full bg-background flex flex-col md:flex-row">
+    <main className="arcade-route min-h-[100dvh] bg-[#2c0707] text-[#fff4d1]">
       <div className="film-grain" />
 
-      {/* Controls */}
-      <div className="w-full md:w-1/3 lg:w-1/4 p-8 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border bg-card/50 backdrop-blur z-10">
-        <h1 className="font-serif text-4xl text-secondary mb-2">The Strip</h1>
-        <p className="text-muted-foreground mb-8">Looking good! Apply a filter or download your photos.</p>
-
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-3">Filters</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilter(f.id)}
-                  className={`px-4 py-3 rounded-xl text-left font-medium transition-all ${
-                    filter === f.id 
-                      ? "bg-primary text-primary-foreground shadow-md" 
-                      : "bg-background hover:bg-muted text-foreground border border-border"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="h-px bg-border my-6" />
-
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={handleDownload}
-              className="flex items-center justify-center gap-2 w-full py-4 bg-secondary text-secondary-foreground rounded-xl font-bold text-lg hover:bg-secondary/90 transition-colors shadow-lg shadow-secondary/20"
-            >
-              <Download size={20} />
-              Download Strip
-            </button>
-            <button
-              onClick={handleRetake}
-              className="flex items-center justify-center gap-2 w-full py-4 bg-background text-foreground border-2 border-border rounded-xl font-bold text-lg hover:bg-muted transition-colors"
-            >
-              <RefreshCcw size={20} />
-              Start Over
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Preview */}
-      <div className="w-full md:flex-1 p-8 py-16 flex items-center justify-center overflow-y-auto bg-muted/30">
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative max-w-4xl w-full mx-auto flex justify-center"
-        >
-          <div 
-            ref={stripRef}
-            className="bg-[#f5f0e6] p-6 pb-10 rounded-sm shadow-2xl rotate-[-1deg] transition-transform hover:rotate-0 duration-500 max-w-full overflow-x-auto"
-            style={{ boxShadow: "10px 20px 40px rgba(0,0,0,0.15), 0 0 10px rgba(0,0,0,0.05) inset" }}
+      <div className="mx-auto grid min-h-[100dvh] max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[360px_1fr] lg:px-8">
+        <aside className="flex flex-col justify-center">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 text-[#20100d] shadow-[8px_8px_0_#ffcc3d]"
           >
-            {/* Header with names */}
-            <div 
-              className="grid gap-4 mb-4" 
-              style={{ gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(120px, 1fr))` }}
-            >
-              {orderedParticipants.map(p => (
-                <div key={p.id} className="text-center font-bold text-[#1a1c23] text-lg truncate px-2">
-                  {p.name}
-                </div>
-              ))}
-            </div>
+            <p className="mb-2 flex items-center gap-2 text-sm font-bold uppercase text-[#9f1714]">
+              <Sparkles size={16} aria-hidden="true" />
+              Prize counter
+            </p>
+            <h1 className="font-serif text-4xl leading-none [letter-spacing:0]">The Strip</h1>
+            <p className="mt-4 font-medium leading-7 text-[#5f3427]">
+              Tune the final print, then download the arcade booth sheet.
+            </p>
 
-            {/* Photo Grid */}
-            <div className="flex flex-col gap-4">
-              {[0, 1, 2, 3].map(rowIndex => {
-                const shot = shots.find(s => s.shotIndex === rowIndex);
-                return (
-                  <div key={rowIndex} className="grid gap-4" style={{ gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(120px, 1fr))` }}>
-                    {orderedParticipants.map(p => {
-                      const photo = shot?.photos.find(ph => ph.participantId === p.id);
-                      return (
-                        <div key={p.id} className="relative aspect-[4/3] bg-black overflow-hidden shadow-inner border border-black/10">
-                          {photo ? (
-                            <img 
-                              src={photo.data} 
-                              alt={`${p.name} shot ${rowIndex + 1}`} 
-                              className="w-full h-full object-cover"
-                              style={{ filter: currentFilterCss }}
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-white/20 text-xs">Waiting...</div>
-                          )}
-                          <div className="absolute inset-0 shadow-[inset_0_0_10px_rgba(0,0,0,0.2)] pointer-events-none" />
-                        </div>
-                      );
-                    })}
+            <div className="my-6 h-[3px] bg-[#20100d]" />
+
+            <section>
+              <h2 className="mb-3 text-sm font-bold uppercase text-[#9f1714]">Filters</h2>
+              <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+                {ARCADE_FILTERS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setFilter(item.id)}
+                    className={`flex items-center justify-between rounded-[8px] border-2 px-4 py-3 text-left font-bold transition focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 ${
+                      filter === item.id
+                        ? "border-[#20100d] bg-[#ffcc3d] shadow-[3px_3px_0_#20100d]"
+                        : "border-[#9b8172] bg-white hover:border-[#20100d]"
+                    }`}
+                  >
+                    {item.label}
+                    <span
+                      className="h-5 w-5 rounded-full border-2 border-[#20100d]"
+                      style={{ filter: item.css, background: "linear-gradient(135deg, #ff8b9d, #24d8d0)" }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <div className="my-6 h-[3px] bg-[#20100d]" />
+
+            <div className="grid gap-3">
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-[#9f1714] px-5 py-4 text-lg font-bold text-[#fff8df] shadow-[5px_5px_0_#20100d] transition hover:bg-[#24d8d0] hover:text-[#20100d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+              >
+                <Download size={20} aria-hidden="true" />
+                Download strip
+              </button>
+              <button
+                type="button"
+                onClick={handleRetake}
+                className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-white px-5 py-4 text-lg font-bold text-[#20100d] shadow-[5px_5px_0_#20100d] transition hover:bg-[#ffcc3d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+              >
+                <RefreshCcw size={20} aria-hidden="true" />
+                Start over
+              </button>
+            </div>
+          </motion.div>
+        </aside>
+
+        <section className="flex items-center justify-center overflow-hidden py-6">
+          <motion.div
+            initial={{ opacity: 0, y: 28, rotate: -1.5 }}
+            animate={{ opacity: 1, y: 0, rotate: -1 }}
+            transition={{ delay: 0.08, duration: 0.5 }}
+            className="max-w-full"
+          >
+            <div
+              ref={stripRef}
+              className="max-w-full overflow-x-auto rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 pb-9 text-[#20100d] shadow-[12px_12px_0_#20100d,0_30px_80px_rgba(0,0,0,0.42)] md:p-7 md:pb-10"
+            >
+              <div
+                className="mb-4 grid gap-4"
+                style={{ gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(120px, 1fr))` }}
+              >
+                {orderedParticipants.map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="truncate border-b-2 border-[#20100d]/25 px-2 pb-2 text-center text-lg font-bold"
+                  >
+                    {participant.name}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              <div className="grid gap-4">
+                {Array.from({ length: BOOTH_FRAME_COUNT }).map((_, rowIndex) => {
+                  const shot = shots.find((item) => item.shotIndex === rowIndex);
+                  return (
+                    <div
+                      key={rowIndex}
+                      className="grid gap-4"
+                      style={{ gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(120px, 1fr))` }}
+                    >
+                      {orderedParticipants.map((participant) => {
+                        const photo = shot?.photos.find((item) => item.participantId === participant.id);
+                        return (
+                          <div
+                            key={participant.id}
+                            className="relative aspect-[4/3] overflow-hidden border-[3px] border-[#20100d] bg-[#160303]"
+                          >
+                            {photo ? (
+                              <img
+                                src={photo.data}
+                                alt={`${participant.name} shot ${rowIndex + 1}`}
+                                className="h-full w-full object-cover"
+                                style={{ filter: currentFilterCss }}
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase text-white/25">
+                                Waiting
+                              </div>
+                            )}
+                            <div className="pointer-events-none absolute left-2 top-2 rounded bg-[#fff8df]/80 px-1.5 py-0.5 text-[10px] font-black text-[#20100d]">
+                              {String(rowIndex + 1).padStart(2, "0")}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <footer className="mt-10 text-center">
+                <h2 className="font-serif text-4xl leading-none [letter-spacing:0]">SnapBooth</h2>
+                <div className="mx-auto my-3 h-[3px] w-20 bg-[#ffcc3d]" />
+                <p className="font-mono text-xs font-bold uppercase text-[#9f1714]">
+                  {new Date().toLocaleDateString()}
+                </p>
+              </footer>
             </div>
-            
-            <div className="mt-12 text-center">
-              <h2 className="font-serif text-4xl text-[#1a1c23] tracking-tighter">SnapBooth</h2>
-              <div className="w-16 h-px bg-primary/50 mx-auto my-3" />
-              <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">{new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

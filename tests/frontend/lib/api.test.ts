@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildApiUrl, buildWebSocketUrl } from "./api";
+import { buildApiUrl, buildWebSocketUrl } from "../../../frontend/src/lib/api";
 
 test("buildApiUrl falls back to the local development API base URL when no API base URL is configured", () => {
   assert.equal(buildApiUrl("/rooms", ""), "http://localhost:3001/api/rooms");
