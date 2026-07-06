@@ -142,15 +142,15 @@ export default function Home() {
               Drop into the booth, stack four frames, and leave with a strip
               that feels pulled from a late-night arcade cabinet.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <a
                 href="#start"
-                className="inline-flex items-center gap-2 rounded-[8px] border-2 border-[#15100c] bg-[#ffcc3d] px-5 py-3 font-bold text-[#211108] shadow-[5px_5px_0_#15100c] transition hover:-translate-y-0.5 hover:bg-[#24d8d0] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] border-2 border-[#15100c] bg-[#ffcc3d] px-5 py-3 font-bold text-[#211108] shadow-[5px_5px_0_#15100c] transition hover:-translate-y-0.5 hover:bg-[#24d8d0] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 sm:w-auto"
               >
                 Pick a booth
                 <ArrowRight size={18} aria-hidden="true" />
               </a>
-              <span className="inline-flex items-center rounded-[8px] border-2 border-[#ffefb0]/35 px-5 py-3 text-sm font-bold text-[#ffefb0]">
+              <span className="inline-flex w-full items-center justify-center rounded-[8px] border-2 border-[#ffefb0]/35 px-5 py-3 text-sm font-bold text-[#ffefb0] sm:w-auto">
                 4 frames per strip
               </span>
             </div>
@@ -248,7 +248,7 @@ export default function Home() {
               initial={{ scale: 0.94, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.94, y: 20 }}
-              className="relative w-full max-w-md rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-7 text-[#20100d] shadow-[8px_8px_0_#ffcc3d]"
+              className="relative w-full max-w-md rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 text-[#20100d] shadow-[6px_6px_0_#ffcc3d] sm:p-7 sm:shadow-[8px_8px_0_#ffcc3d]"
             >
               <button
                 type="button"
@@ -263,7 +263,7 @@ export default function Home() {
                 <p className="mb-2 text-sm font-bold uppercase text-[#9f1714]">
                   {selectedMode.label} session
                 </p>
-                <h2 className="font-serif text-4xl leading-none text-[#20100d] [letter-spacing:0]">
+                <h2 className="font-serif text-3xl leading-none text-[#20100d] [letter-spacing:0] sm:text-4xl">
                   Host name
                 </h2>
               </div>

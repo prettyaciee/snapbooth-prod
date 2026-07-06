@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Download, RefreshCcw, Sparkles } from "lucide-react";
 import { usePhotoStore } from "@/lib/store";
 import { ARCADE_FILTERS, BOOTH_FRAME_COUNT } from "@/lib/arcade-ui";
+import { getResultStripLayout } from "@/lib/result-strip-layout";
 
 export default function Result() {
   const [, setLocation] = useLocation();
@@ -108,12 +109,13 @@ export default function Result() {
 
   const currentFilterCss = ARCADE_FILTERS.find((item) => item.id === filter)?.css || "none";
   const orderedParticipants = [...participants].sort((a, b) => a.id.localeCompare(b.id));
+  const stripLayout = getResultStripLayout(orderedParticipants.length);
 
   return (
     <main className="arcade-route min-h-[100dvh] bg-[#2c0707] text-[#fff4d1]">
       <div className="film-grain" />
 
-      <div className="mx-auto grid min-h-[100dvh] max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[360px_1fr] lg:px-8">
+      <div className="mx-auto grid min-h-[100dvh] max-w-7xl gap-4 px-4 py-4 sm:gap-6 sm:px-5 sm:py-6 lg:grid-cols-[360px_1fr] lg:px-8">
         <aside className="flex flex-col justify-center">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
@@ -133,7 +135,7 @@ export default function Result() {
 
             <section>
               <h2 className="mb-3 text-sm font-bold uppercase text-[#9f1714]">Filters</h2>
-              <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                 {ARCADE_FILTERS.map((item) => (
                   <button
                     key={item.id}
@@ -161,7 +163,7 @@ export default function Result() {
               <button
                 type="button"
                 onClick={handleDownload}
-                className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-[#9f1714] px-5 py-4 text-lg font-bold text-[#fff8df] shadow-[5px_5px_0_#20100d] transition hover:bg-[#24d8d0] hover:text-[#20100d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+                className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-[#9f1714] px-4 py-3 text-base font-bold text-[#fff8df] shadow-[5px_5px_0_#20100d] transition hover:bg-[#24d8d0] hover:text-[#20100d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 sm:px-5 sm:py-4 sm:text-lg"
               >
                 <Download size={20} aria-hidden="true" />
                 Download strip
@@ -169,7 +171,7 @@ export default function Result() {
               <button
                 type="button"
                 onClick={handleRetake}
-                className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-white px-5 py-4 text-lg font-bold text-[#20100d] shadow-[5px_5px_0_#20100d] transition hover:bg-[#ffcc3d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+                className="flex w-full items-center justify-center gap-2 rounded-[8px] border-[3px] border-[#20100d] bg-white px-4 py-3 text-base font-bold text-[#20100d] shadow-[5px_5px_0_#20100d] transition hover:bg-[#ffcc3d] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 sm:px-5 sm:py-4 sm:text-lg"
               >
                 <RefreshCcw size={20} aria-hidden="true" />
                 Start over
@@ -178,39 +180,45 @@ export default function Result() {
           </motion.div>
         </aside>
 
-        <section className="flex items-center justify-center overflow-hidden py-6">
+        <section className="w-full overflow-x-auto py-4 sm:py-6">
           <motion.div
             initial={{ opacity: 0, y: 28, rotate: -1.5 }}
             animate={{ opacity: 1, y: 0, rotate: -1 }}
             transition={{ delay: 0.08, duration: 0.5 }}
-            className="max-w-full"
+            className="min-w-max sm:max-w-full"
           >
             <div
               ref={stripRef}
-              className="max-w-full overflow-x-auto rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 pb-9 text-[#20100d] shadow-[12px_12px_0_#20100d,0_30px_80px_rgba(0,0,0,0.42)] md:p-7 md:pb-10"
+              className="rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-3 pb-6 text-[#20100d] shadow-[8px_8px_0_#20100d,0_18px_48px_rgba(0,0,0,0.34)] sm:p-5 sm:pb-9 sm:shadow-[12px_12px_0_#20100d,0_30px_80px_rgba(0,0,0,0.42)] md:p-7 md:pb-10"
             >
               <div
-                className="mb-4 grid gap-4"
-                style={{ gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(120px, 1fr))` }}
+                className="mb-4 grid"
+                style={{
+                  gap: `${stripLayout.gapPx}px`,
+                  gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(${stripLayout.columnMinWidth}px, 1fr))`,
+                }}
               >
                 {orderedParticipants.map((participant) => (
                   <div
                     key={participant.id}
-                    className="truncate border-b-2 border-[#20100d]/25 px-2 pb-2 text-center text-lg font-bold"
+                    className="truncate border-b-2 border-[#20100d]/25 px-1.5 pb-2 text-center text-sm font-bold sm:px-2 sm:text-lg"
                   >
                     {participant.name}
                   </div>
                 ))}
               </div>
 
-              <div className="grid gap-4">
+              <div className="grid" style={{ gap: `${stripLayout.gapPx}px` }}>
                 {Array.from({ length: BOOTH_FRAME_COUNT }).map((_, rowIndex) => {
                   const shot = shots.find((item) => item.shotIndex === rowIndex);
                   return (
                     <div
                       key={rowIndex}
-                      className="grid gap-4"
-                      style={{ gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(120px, 1fr))` }}
+                      className="grid"
+                      style={{
+                        gap: `${stripLayout.gapPx}px`,
+                        gridTemplateColumns: `repeat(${orderedParticipants.length}, minmax(${stripLayout.columnMinWidth}px, 1fr))`,
+                      }}
                     >
                       {orderedParticipants.map((participant) => {
                         const photo = shot?.photos.find((item) => item.participantId === participant.id);
@@ -242,8 +250,8 @@ export default function Result() {
                 })}
               </div>
 
-              <footer className="mt-10 text-center">
-                <h2 className="font-serif text-4xl leading-none [letter-spacing:0]">SnapBooth</h2>
+              <footer className="mt-8 text-center sm:mt-10">
+                <h2 className="font-serif text-3xl leading-none [letter-spacing:0] sm:text-4xl">SnapBooth</h2>
                 <div className="mx-auto my-3 h-[3px] w-20 bg-[#ffcc3d]" />
                 <p className="font-mono text-xs font-bold uppercase text-[#9f1714]">
                   {new Date().toLocaleDateString()}

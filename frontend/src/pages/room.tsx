@@ -15,21 +15,28 @@ import { usePhotoStore } from "@/lib/store";
 import { useRoomWs } from "@/hooks/use-room-ws";
 import { buildApiUrl } from "@/lib/api";
 import { BOOTH_FRAME_COUNT, ROOM_MODE_BY_SIZE } from "@/lib/arcade-ui";
-
-type Phase = "fetching" | "name_entry" | "ready";
+import { resolveFetchedRoomPhase, resolveInitialRoomPhase, type RoomPhase } from "@/lib/room-phase";
 
 export default function Room() {
   const { roomId } = useParams<{ roomId: string }>();
   const [, setLocation] = useLocation();
   const store = usePhotoStore();
 
-  const initialPhase: Phase = store.myName && store.roomId ? "ready" : "fetching";
-  const [phase, setPhase] = useState<Phase>(initialPhase);
+  const initialPhase = resolveInitialRoomPhase({
+    routeRoomId: roomId,
+    storedRoomId: store.roomId,
+    myName: store.myName,
+  });
+  const [phase, setPhase] = useState<RoomPhase>(initialPhase);
   const [fetchedGroupSize, setFetchedGroupSize] = useState(store.groupSize ?? 0);
   const [joinName, setJoinName] = useState("");
   const [fetchError, setFetchError] = useState(false);
 
   const myParticipantId = useRef(store.myParticipantId || crypto.randomUUID()).current;
+  const roomIdentityRef = useRef({
+    storedRoomId: store.roomId,
+    myName: store.myName,
+  });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -42,6 +49,27 @@ export default function Room() {
     { participantId: string; name: string; data: string }[] | null
   >(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    roomIdentityRef.current = {
+      storedRoomId: store.roomId,
+      myName: store.myName,
+    };
+  }, [store.myName, store.roomId]);
+
+  useEffect(() => {
+    if (phase !== "name_entry") return;
+
+    const nextPhase = resolveFetchedRoomPhase({
+      routeRoomId: roomId,
+      storedRoomId: store.roomId,
+      myName: store.myName,
+    });
+
+    if (nextPhase === "ready") {
+      setPhase("ready");
+    }
+  }, [phase, roomId, store.myName, store.roomId]);
 
   useEffect(() => {
     if (phase !== "fetching") return;
@@ -57,7 +85,11 @@ export default function Room() {
       })
       .then((data) => {
         setFetchedGroupSize(data.groupSize);
-        setPhase("name_entry");
+        setPhase(resolveFetchedRoomPhase({
+          routeRoomId: roomId,
+          storedRoomId: roomIdentityRef.current.storedRoomId,
+          myName: roomIdentityRef.current.myName,
+        }));
       })
       .catch(() => {
         setFetchError(true);
@@ -260,10 +292,10 @@ export default function Room() {
       <div className="film-grain" />
       <canvas ref={canvasRef} className="hidden" />
 
-      <header className="relative z-20 flex items-center justify-between border-b border-[#ffcc3d]/25 bg-[#160303]/88 px-5 py-4 backdrop-blur md:px-8">
-        <div>
+      <header className="relative z-20 flex flex-col gap-3 border-b border-[#ffcc3d]/25 bg-[#160303]/88 px-5 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase text-[#ffcc3d]">SnapBooth room</p>
-          <h1 className="font-serif text-3xl leading-none text-[#ffefb0] [letter-spacing:0]">
+          <h1 className="truncate font-serif text-2xl leading-none text-[#ffefb0] [letter-spacing:0] sm:text-3xl">
             {store.roomId || roomId}
           </h1>
         </div>
@@ -286,11 +318,11 @@ export default function Room() {
       </header>
 
       {!isBooth ? (
-        <section className="mx-auto grid min-h-[calc(100dvh-82px)] max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[390px_1fr] lg:px-8">
+        <section className="mx-auto grid min-h-[calc(100dvh-82px)] max-w-7xl gap-4 px-4 py-4 sm:gap-6 sm:px-5 sm:py-6 lg:grid-cols-[390px_1fr] lg:px-8">
           <aside className="rounded-[8px] border-[3px] border-[#20100d] bg-[#fff8df] p-5 text-[#20100d] shadow-[8px_8px_0_#20100d]">
             <div className="mb-6 border-b-[3px] border-[#20100d] pb-5">
               <p className="text-sm font-bold uppercase text-[#9f1714]">Invite ticket</p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <div className="min-w-0 flex-1 rounded-[8px] border-2 border-[#20100d] bg-white px-3 py-2 font-mono text-sm text-[#5f3427]">
                   <span className="block truncate">{window.location.origin}/room/{roomId}</span>
                 </div>
@@ -298,7 +330,7 @@ export default function Room() {
                   type="button"
                   onClick={handleCopy}
                   data-testid="button-copy-link"
-                  className="inline-flex items-center gap-2 rounded-[8px] border-2 border-[#20100d] bg-[#ffcc3d] px-3 py-2 text-sm font-bold shadow-[3px_3px_0_#20100d] transition hover:bg-[#24d8d0] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] border-2 border-[#20100d] bg-[#ffcc3d] px-3 py-2 text-sm font-bold shadow-[3px_3px_0_#20100d] transition hover:bg-[#24d8d0] focus:outline-none focus:ring-4 focus:ring-[#24d8d0]/30 sm:w-auto"
                 >
                   {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
                   {copied ? "Copied" : "Copy"}
@@ -366,9 +398,9 @@ export default function Room() {
             </div>
           </aside>
 
-          <section className="flex min-h-[420px] flex-col justify-center gap-4">
+          <section className="flex min-h-[320px] flex-col justify-center gap-4 sm:min-h-[420px]">
             <p className="text-sm font-bold uppercase text-[#ffcc3d]">Live preview</p>
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border-[6px] border-[#20100d] bg-black shadow-[10px_10px_0_#ffcc3d]">
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border-[4px] border-[#20100d] bg-black shadow-[7px_7px_0_#ffcc3d] sm:border-[6px] sm:shadow-[10px_10px_0_#ffcc3d]">
               {hasPermission === null && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#160303]">
                   <p className="font-serif text-2xl text-[#ffcc3d] [letter-spacing:0]">Connecting camera</p>
@@ -400,7 +432,7 @@ export default function Room() {
       ) : (
         <section className="relative flex min-h-[calc(100dvh-82px)] flex-col items-center justify-center bg-[#070202] px-4 py-6">
           <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center gap-5">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border-[8px] border-[#9f1714] bg-black shadow-[0_0_0_4px_#20100d,0_28px_70px_rgba(255,204,61,0.22)]">
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border-[5px] border-[#9f1714] bg-black shadow-[0_0_0_3px_#20100d,0_20px_46px_rgba(255,204,61,0.18)] sm:border-[8px] sm:shadow-[0_0_0_4px_#20100d,0_28px_70px_rgba(255,204,61,0.22)]">
               {hasPermission === false && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#160303] p-8 text-center">
                   <Camera size={64} className="mb-4 text-[#ffcc3d]" aria-hidden="true" />
@@ -439,7 +471,7 @@ export default function Room() {
                     transition={{ type: "spring", stiffness: 400, damping: 22 }}
                     className="absolute inset-0 z-30 flex items-center justify-center"
                   >
-                    <span className="font-serif text-[8rem] font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)] [letter-spacing:0] md:text-[13rem]">
+                    <span className="font-serif text-[5rem] font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)] [letter-spacing:0] sm:text-[8rem] md:text-[13rem]">
                       {countdownDisplay}
                     </span>
                   </motion.div>
@@ -452,7 +484,7 @@ export default function Room() {
                     exit={{ scale: 1.3, opacity: 0 }}
                     className="absolute inset-0 z-30 flex items-center justify-center"
                   >
-                    <span className="font-serif text-6xl font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)] [letter-spacing:0] md:text-9xl">
+                    <span className="font-serif text-4xl font-bold text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.95)] [letter-spacing:0] sm:text-6xl md:text-9xl">
                       SMILE!
                     </span>
                   </motion.div>
@@ -488,7 +520,7 @@ export default function Room() {
               </AnimatePresence>
             </div>
 
-            <div className="flex justify-center gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
               {Array.from({ length: BOOTH_FRAME_COUNT }).map((_, index) => {
                 const shot = store.shots.find((item) => item.shotIndex === index);
                 const myPhoto = shot?.photos.find((photo) => photo.participantId === store.myParticipantId);
